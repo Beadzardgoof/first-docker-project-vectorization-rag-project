@@ -1,29 +1,29 @@
 version: '3.8'
 
 services:
-  # Vector Database Service
+  # Vector Database Service (temporarily exposed for seeding)
   vector-db:
     build: ./services/vector-db
     container_name: flight-vector-db
     ports:
-      - "8001:8000"
+      - "8001:8000"  # Temporarily expose for seeding
     volumes:
       - vector_data:/app/data
     environment:
       - CHROMA_HOST=0.0.0.0
       - CHROMA_PORT=8000
+      - ANONYMIZED_TELEMETRY=false
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # RAG Service with MCP
+  # RAG Service with MCP (internal only)
   rag-service:
     build: ./services/rag-service
     container_name: flight-rag-service
-    ports:
-      - "8002:8000"
+    # No ports exposed - only accessible within Docker network
     depends_on:
       vector-db:
         condition: service_healthy
@@ -33,17 +33,17 @@ services:
     volumes:
       - ./data:/app/data
 
-  # LLM Service
+  # LLM Service (public API)
   llm-service:
     build: ./services/llm-service
     container_name: flight-llm-service
     ports:
-      - "8003:8000"
+      - "8080:8000"  # Only this service is exposed to host
     depends_on:
       - rag-service
     environment:
       - RAG_SERVICE_URL=http://rag-service:8000
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
       - ./config:/app/config
 

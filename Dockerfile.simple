@@ -1,0 +1,20 @@
+FROM python:3.11-slim
+
+# Install uv
+RUN pip install uv
+
+WORKDIR /app
+
+# Copy requirements and test file
+COPY requirements.txt .
+COPY simple_test.py .
+
+# Install dependencies using uv
+RUN uv venv && \
+    uv pip install -r requirements.txt
+
+# Expose port
+EXPOSE 8000
+
+# Run the simple test service
+CMD ["/app/.venv/bin/python", "simple_test.py"]

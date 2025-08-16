@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # Vector Database Service
+  vector-db:
+    build: ./services/vector-db
+    container_name: flight-vector-db
+    ports:
+      - "8001:8000"
+    volumes:
+      - vector_data:/app/data
+    environment:
+      - CHROMA_HOST=0.0.0.0
+      - CHROMA_PORT=8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # RAG Service with MCP
+  rag-service:
+    build: ./services/rag-service
+    container_name: flight-rag-service
+    ports:
+      - "8002:8000"
+    depends_on:
+      vector-db:
+        condition: service_healthy
+    environment:
+      - VECTOR_DB_URL=http://vector-db:8000
+      - MCP_PORT=8000
+    volumes:
+      - ./data:/app/data
+
+  # LLM Service
+  llm-service:
+    build: ./services/llm-service
+    container_name: flight-llm-service
+    ports:
+      - "8003:8000"
+    depends_on:
+      - rag-service
+    environment:
+      - RAG_SERVICE_URL=http://rag-service:8000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./config:/app/config
+
+  # Console Frontend
+  console-frontend:
+    build: ./services/console-frontend
+    container_name: flight-console
+    depends_on:
+      - llm-service
+    environment:
+      - LLM_SERVICE_URL=http://llm-service:8000
+    stdin_open: true
+    tty: true
+
+volumes:
+  vector_data:
+    driver: local

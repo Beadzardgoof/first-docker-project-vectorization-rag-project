@@ -9,3 +9,16 @@
 .env.development
 .env.test
 .env.production
+
+#claude files
+.claude/
+.claude-cache
+.claude-cache-v2
+.claude-cache-v3
+.claude-cache-v4
+.claude-cache-v5
+.claude-cache-v6
+.claude-cache-v7
+.claude-cache-v8
+
+.CLAUDE.md

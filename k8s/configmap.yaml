@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flight-search-config
+  namespace: flight-search
+data:
+  # Service URLs
+  VECTOR_DB_URL: "http://vector-db-service:8000"
+  RAG_SERVICE_URL: "http://rag-service:8000"
+  
+  # Application settings
+  LOG_LEVEL: "info"
+  MAX_TOKENS: "15000"
+  WORKER_COUNT: "4"
+  
+  # Vector DB settings
+  CHROMA_PERSIST_DIRECTORY: "/data/chroma"
+  COLLECTION_NAME: "flights"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: flight-search-secrets
+  namespace: flight-search
+type: Opaque
+data:
+  # Base64 encoded secrets
+  OPENAI_API_KEY: ""  # Add your base64 encoded OpenAI API key
+stringData:
+  # Or use stringData for plain text (K8s will encode)
+  # OPENAI_API_KEY: "your-api-key-here"

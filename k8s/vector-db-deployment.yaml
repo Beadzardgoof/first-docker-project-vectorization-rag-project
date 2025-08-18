@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vector-db
+  namespace: flight-search
+  labels:
+    app: vector-db
+    tier: data
+spec:
+  replicas: 2  # Matches HPA minReplicas for consistency
+  selector:
+    matchLabels:
+      app: vector-db
+  template:
+    metadata:
+      labels:
+        app: vector-db
+        tier: data
+    spec:
+      containers:
+      - name: vector-db
+        image: flight-vector-db:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: CHROMA_PERSIST_DIRECTORY
+          valueFrom:
+            configMapKeyRef:
+              name: flight-search-config
+              key: CHROMA_PERSIST_DIRECTORY
+        volumeMounts:
+        - name: vector-data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "2Gi"    # Higher baseline for vector operations
+            cpu: "1000m"     # More CPU for similarity search
+          limits:
+            memory: "8Gi"    # Large dataset support
+            cpu: "4000m"     # Allow CPU bursts for indexing
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: vector-data
+        persistentVolumeClaim:
+          claimName: vector-db-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vector-db-pvc
+  namespace: flight-search
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi  # Scale based on dataset size
+  storageClassName: fast-ssd  # Use SSD for vector operations
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vector-db-service
+  namespace: flight-search
+  labels:
+    app: vector-db
+spec:
+  selector:
+    app: vector-db
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vector-db-hpa
+  namespace: flight-search
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vector-db
+  minReplicas: 2      # Need persistence
+  maxReplicas: 5      # Limited by memory/storage needs
+  metrics:
+  - type: Resource
+    resource:
+      name: memory      # Scale primarily on memory usage
+      target:
+        type: Utilization
+        averageUtilization: 70
